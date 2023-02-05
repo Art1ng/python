@@ -1,6 +1,7 @@
 from abc import ABC
 import homework_02.exceptions as exceptions
 
+
 class Vehicle(ABC):
     def __init__(self, weight: int = 0, fuel: int = 0, fuel_consumption: int = 0, started: bool = False):
         self.weight = weight
