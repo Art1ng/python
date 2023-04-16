@@ -12,30 +12,45 @@
   (используйте полученные из запроса данные, передайте их в функцию для добавления в БД)
 - закрытие соединения с БД
 """
-
 import asyncio
-from models import User, Post, Session
+
+from models import engine, Session, User, Post, Base
 from jsonplaceholder_requests import fetch_users_data, fetch_posts_data
 
-async def create_users_and_posts(users_data, posts_data):
-    async with Session() as session:
-        async with session.begin():
-            for user_data in users_data:
-                user = User(id=user_data["id"], name=user_data["name"], username=user_data["username"], email=user_data["email"])
-                session.add(user)
+async def create_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
 
-            for post_data in posts_data:
-                post = Post(id=post_data["id"], user_id=post_data["userId"], title=post_data["title"], body=post_data["body"])
-                session.add(post)
+async def load_users_data():
+    users_data = await fetch_users_data()
+    users = [
+        User(name=user["name"], username=user["username"], email=user["email"])
+        for user in users_data
+    ]
+    async with Session() as s:
+        s.add_all(users)
+        await s.commit()
 
-        await session.commit()
+async def load_posts_data():
+    posts_data = await fetch_posts_data()
+    posts = [
+        Post(user_id=post["userId"], title=post["title"], body=post["body"])
+        for post in posts_data
+    ]
+    async with Session() as s:
+        s.add_all(posts)
+        await s.commit()
 
 async def async_main():
-    users_data, posts_data = await asyncio.gather(fetch_users_data(), fetch_posts_data())
-    await create_users_and_posts(users_data, posts_data)
+    await create_tables()
+    await asyncio.gather(load_users_data(), load_posts_data())
+
 
 def main():
     asyncio.run(async_main())
+    Session.close()
+
 
 if __name__ == "__main__":
     main()
